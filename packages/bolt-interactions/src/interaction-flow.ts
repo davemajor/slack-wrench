@@ -6,6 +6,7 @@ import {
   MemoryStore,
   Middleware,
   SlackAction,
+  SlackViewAction,
 } from '@slack/bolt';
 import { WebClient } from '@slack/web-api';
 import uuid from 'uuid/v4';
@@ -112,6 +113,16 @@ export class InteractionFlow<FlowState = unknown> {
       return flowId;
     }
 
+    if ('view' in body) {
+      // in current iteration, parsing private_metadata to restore flow context
+      // because on view submission, context is lost completely otherwise
+      const { flowId } = InteractionFlow.parseInteractionId(
+        body.view.private_metadata,
+      );
+
+      return flowId;
+    }
+
     // Just in case slack does something weird, I'm unsure how to trigger this
     /* istanbul ignore next */
     throw new Error("Couldn't find a flow in provided context");
@@ -201,6 +212,15 @@ export class InteractionFlow<FlowState = unknown> {
     this.interactionIds.push(constraints.action_id);
 
     this.app.action(flowConstraints, ...this.injectListeners(...listeners));
+  }
+
+  view<ViewActionType extends SlackViewAction>(
+    callback_id: string | RegExp,
+    ...listeners: Middleware<
+      Interaction.FlowViewMiddlewareArgs<FlowState, ViewActionType>
+    >[]
+  ): void {
+    this.app.view(callback_id, ...this.injectListeners(...listeners));
   }
 }
 
